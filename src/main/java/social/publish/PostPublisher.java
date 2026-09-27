@@ -69,6 +69,25 @@ public final class PostPublisher {
      */
     public static PublishResult publish(String postId, String text, int likeCount, List<CommentData> comments)
             throws PublishException {
+        return publish(postId, text, null, likeCount, comments);
+    }
+
+    /**
+     * Sendet den Post mit optionaler avatarId (z. B. "avatar_female_german_01") — bestimmt das
+     * Avatar-Bild auf der Website. avatarId ist komplett optional: null oder leer lässt das
+     * Feld im JSON einfach weg (siehe toJson(...) unten — es wird als letztes Feld angehängt).
+     * ACHTUNG: blockiert den aufrufenden Thread — in JavaFX besser publishAsync(...) verwenden.
+     *
+     * @param postId    postId aus vorherigem PublishResult (null = Library generiert neu)
+     * @param text      Post-Text (nicht leer, max. 280 Zeichen)
+     * @param avatarId  optionale Avatar-Kennung (null oder leer = kein Avatar)
+     * @param likeCount Like-Zaehler (>= 0)
+     * @param comments  Kommentare in chronologischer Reihenfolge (darf leer sein)
+     * @return Ergebnis mit HTTP-Statuscode, Server-Antwort und postId
+     * @throws PublishException bei Netzwerkfehlern oder Fehler-Status des Servers
+     */
+    public static PublishResult publish(String postId, String text, String avatarId, int likeCount, List<CommentData> comments)
+            throws PublishException {
         validate(text, likeCount, comments);
         String resolvedPostId = (postId == null || postId.isBlank())
                 ? UUID.randomUUID().toString()
@@ -77,7 +96,7 @@ public final class PostPublisher {
                 .uri(URI.create(ENDPOINT))
                 .timeout(Duration.ofSeconds(15))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(toJson(resolvedPostId, text, likeCount, comments)))
+                .POST(HttpRequest.BodyPublishers.ofString(toJson(resolvedPostId, text, avatarId, likeCount, comments)))
                 .build();
         try {
             HttpResponse<String> response =
@@ -111,9 +130,18 @@ public final class PostPublisher {
      */
     public static CompletableFuture<PublishResult> publishAsync(
             String postId, String text, int likeCount, List<CommentData> comments) {
+        return publishAsync(postId, text, null, likeCount, comments);
+    }
+
+    /**
+     * Wie publish(postId, text, avatarId, ...), aber asynchron — blockiert die JavaFX-UI nicht.
+     * Fehler kommen als CompletionException mit PublishException als Cause.
+     */
+    public static CompletableFuture<PublishResult> publishAsync(
+            String postId, String text, String avatarId, int likeCount, List<CommentData> comments) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return publish(postId, text, likeCount, comments);
+                return publish(postId, text, avatarId, likeCount, comments);
             } catch (PublishException e) {
                 throw new CompletionException(e);
             }
@@ -132,7 +160,7 @@ public final class PostPublisher {
     }
 
     /** Baut das feste API-JSON. Die Feldnamen hier sind der Server-Vertrag. */
-    private static String toJson(String postId, String text, int likeCount, List<CommentData> comments) {
+    private static String toJson(String postId, String text, String avatarId, int likeCount, List<CommentData> comments) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\"post\":{\"id\":\"").append(escape(postId))
           .append("\",\"text\":\"").append(escape(text))
@@ -152,7 +180,12 @@ public final class PostPublisher {
             }
             sb.append("}");
         }
-        sb.append("]}}");
+        sb.append("]");
+        // avatarId ist optional — kommt nur ans Ende des post-Objekts, wenn vorhanden
+        if (avatarId != null && !avatarId.isBlank()) {
+            sb.append(",\"avatarId\":\"").append(escape(avatarId)).append("\"");
+        }
+        sb.append("}}");
         return sb.toString();
     }
 
