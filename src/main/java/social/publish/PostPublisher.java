@@ -33,7 +33,7 @@ public final class PostPublisher {
     public record PublishResult(boolean success, int statusCode, String message, String postId) {}
 
     /** URL der Kurs-API (Vercel Function) — vor Release anpassen! */
-    private static final String ENDPOINT = "https://DEIN-PROJEKT.vercel.app/api/post";
+    private static final String ENDPOINT = "https://twitter-web-inky.vercel.app/api/post";
 
     private static final HttpClient CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
