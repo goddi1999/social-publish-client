@@ -39,4 +39,19 @@ public class PostPublisherTest {
         assertNull(c.id());
         assertEquals("nice", c.text());
     }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectMissingImageFile() throws PublishException {
+        PostPublisher.publishWithImage(null, "hi", "/does/not/exist.png", 0, List.of());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectNonImageFile() throws Exception {
+        java.nio.file.Path f = java.nio.file.Files.createTempFile("note", ".txt");
+        try {
+            PostPublisher.publishWithImage(null, "hi", f.toString(), 0, List.of());
+        } finally {
+            java.nio.file.Files.deleteIfExists(f);
+        }
+    }
 }
