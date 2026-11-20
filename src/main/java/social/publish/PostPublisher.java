@@ -82,31 +82,33 @@ public final class PostPublisher {
     }
 
     /**
-     * Sendet den Post mit optionaler avatarId (z. B. "avatar_female_german_01") — bestimmt das
-     * Avatar-Bild auf der Website. avatarId ist komplett optional: null oder leer lässt das
-     * Feld im JSON einfach weg.
+     * Sendet den Post mit optionalem Bild: Gibt es einen imagePath, laedt die Library die Datei
+     * selbst in den Supabase Storage und sendet nur die oeffentliche URL mit. null oder leer =
+     * kein Bild (Post wird ganz normal gesendet).
      * ACHTUNG: blockiert den aufrufenden Thread — in JavaFX besser publishAsync(...) verwenden.
      *
      * @param postId    postId aus vorherigem PublishResult (null = Library generiert neu)
      * @param text      Post-Text (nicht leer, max. 280 Zeichen)
-     * @param avatarId  optionale Avatar-Kennung (null oder leer = kein Avatar)
+     * @param imagePath optionaler Pfad zu einer PNG/JPG-Datei (max. 5 MB), z. B. post.getImagePath()
      * @param likeCount Like-Zaehler (>= 0)
      * @param comments  Kommentare in chronologischer Reihenfolge (darf leer sein)
      * @return Ergebnis mit HTTP-Statuscode, Server-Antwort und postId
-     * @throws PublishException bei Netzwerkfehlern oder Fehler-Status des Servers
+     * @throws IllegalArgumentException wenn die Bilddatei fehlt, zu gross ist oder weder PNG noch JPG ist
+     * @throws PublishException         bei Netzwerkfehlern, Upload-Fehlern oder Fehler-Status des Servers
      */
-    public static PublishResult publish(String postId, String text, String avatarId, int likeCount, List<CommentData> comments)
+    public static PublishResult publish(String postId, String text, String imagePath, int likeCount, List<CommentData> comments)
             throws PublishException {
-        return publish(postId, text, avatarId, null, likeCount, comments);
+        return publish(postId, text, null, imagePath, likeCount, comments);
     }
 
     /**
-     * Wie publish(postId, text, avatarId, ...), zusaetzlich mit optionalem Bild: Gibt es einen
-     * imagePath, laedt die Library die Datei selbst in den Supabase Storage und sendet nur die
-     * oeffentliche URL mit. null oder leer = kein Bild (Post wird ganz normal gesendet).
+     * Wie publish(postId, text, imagePath, ...), zusaetzlich mit optionaler avatarId
+     * (z. B. "avatar_female_german_01") — bestimmt das Avatar-Bild auf der Website.
+     * null oder leer laesst das jeweilige Feld im JSON weg.
      * ACHTUNG: blockiert den aufrufenden Thread — in JavaFX besser publishAsync(...) verwenden.
      *
-     * @param imagePath optionaler Pfad zu einer PNG/JPG-Datei (max. 5 MB), z. B. post.getImagePath()
+     * @param avatarId  optionale Avatar-Kennung (null oder leer = kein Avatar)
+     * @param imagePath optionaler Pfad zu einer PNG/JPG-Datei (max. 5 MB)
      * @throws IllegalArgumentException wenn die Bilddatei fehlt, zu gross ist oder weder PNG noch JPG ist
      * @throws PublishException         bei Netzwerkfehlern, Upload-Fehlern oder Fehler-Status des Servers
      */
@@ -144,16 +146,6 @@ public final class PostPublisher {
     }
 
     /**
-     * Der einfache Weg mit Bild: nur imagePath mitgeben, den Rest (Upload) macht die Library.
-     * Blockiert den aufrufenden Thread — in JavaFX besser publishAsyncWithImage(...) verwenden.
-     */
-    public static PublishResult publishWithImage(String postId, String text, String imagePath,
-                                                 int likeCount, List<CommentData> comments)
-            throws PublishException {
-        return publish(postId, text, null, imagePath, likeCount, comments);
-    }
-
-    /**
      * Wie publish(...), aber asynchron — blockiert die JavaFX-UI nicht.
      * Fehler kommen als CompletionException mit PublishException als Cause.
      */
@@ -172,12 +164,13 @@ public final class PostPublisher {
     }
 
     /**
-     * Wie publish(postId, text, avatarId, ...), aber asynchron — blockiert die JavaFX-UI nicht.
-     * Fehler kommen als CompletionException mit PublishException als Cause.
+     * Wie publish(postId, text, imagePath, ...), aber asynchron — Upload und Senden laufen im
+     * Hintergrund, die JavaFX-UI blockiert nicht. Fehler kommen als CompletionException (Cause:
+     * PublishException oder IllegalArgumentException bei ungueltigem Bild).
      */
     public static CompletableFuture<PublishResult> publishAsync(
-            String postId, String text, String avatarId, int likeCount, List<CommentData> comments) {
-        return publishAsync(postId, text, avatarId, null, likeCount, comments);
+            String postId, String text, String imagePath, int likeCount, List<CommentData> comments) {
+        return publishAsync(postId, text, null, imagePath, likeCount, comments);
     }
 
     /**
@@ -195,12 +188,6 @@ public final class PostPublisher {
                 throw new CompletionException(e);
             }
         });
-    }
-
-    /** Async-Variante von publishWithImage(...) — der einfache Weg fuer JavaFX. */
-    public static CompletableFuture<PublishResult> publishAsyncWithImage(
-            String postId, String text, String imagePath, int likeCount, List<CommentData> comments) {
-        return publishAsync(postId, text, null, imagePath, likeCount, comments);
     }
 
     private static void validate(String text, int likeCount, List<CommentData> comments) {
